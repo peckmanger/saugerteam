@@ -11,7 +11,7 @@ window.APP_CONFIG = {
   // Supabase → Project Settings → API Keys → "Publishable key" (oder "anon public").
   // Dieser Schlüssel ist öffentlich und darf im Code stehen.
   supabaseKey: "sb_publishable_SMD3LBjXLlhJH8UJKsoy7g_8mZaVz9q",
-  vapidPublicKey: "j3h06n6BLJuDY53xYbrZQTKb7XvgFE_xl7X8ThEhY4c"
+  vapidPublicKey: "j3h06n6BLJuDY53xYbrZQTKb7XvgFE_xl7X8ThEhY4c",
   
   // Anzeige
   title: "Saugerteam",
