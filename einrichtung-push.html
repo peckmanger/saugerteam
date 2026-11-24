@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saugerteam – Push einrichten</title>
+<script src="config.js"></script>
+<style>
+:root{--accent:#50AE2F;--bg:#F6F7F5;--card:#fff;--text:#16181A;--muted:#6B7177;--line:#E6E8E4;--chip:#F0F2EE;
+  font-family:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{margin:0;background:var(--bg);color:var(--text);font-size:15px;line-height:1.5}
+.wrap{max-width:760px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:26px;margin:0 0 6px;letter-spacing:-.02em}
+h2{font-size:17px;margin:0 0 4px}
+p{color:var(--muted);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:14px}
+label{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
+input{width:100%;box-sizing:border-box;border:1px solid #D5D8D2;border-radius:12px;padding:10px 12px;font:inherit}
+input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(80,174,47,.15)}
+button{font:inherit;border-radius:12px;padding:11px 16px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-weight:600;cursor:pointer;margin-top:16px}
+button.copy{background:#fff;color:var(--text);border-color:#D5D8D2;padding:6px 12px;margin:0;font-size:13px;font-weight:550}
+.kv{display:grid;grid-template-columns:170px 1fr auto;gap:8px 10px;align-items:center;margin-top:10px}
+.kv b{font-family:ui-monospace,Menlo,monospace;font-size:13px}
+code,pre{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;background:var(--chip);border-radius:8px}
+.kv code{padding:6px 8px;overflow-wrap:anywhere}
+pre{padding:12px;white-space:pre-wrap;overflow-wrap:anywhere;margin:10px 0 8px}
+.warn{background:#FFF7E0;border:1px solid #F1DFA6;color:#6B5200;border-radius:12px;padding:10px 12px;font-size:13.5px;margin-top:14px}
+.step{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:13px;font-weight:700;margin-right:8px}
+#out{display:none}
+@media (max-width:600px){.kv{grid-template-columns:1fr auto}.kv b{grid-column:1/-1}}
+</style>
+</head>
+<body><div class="wrap">
+<h1>Push-Benachrichtigungen einrichten</h1>
+<p>Diese Seite erzeugt die Schlüssel für die Benachrichtigungen – direkt hier im Browser. Es wird nichts verschickt oder gespeichert. Nur <b>einmal</b> ausführen: Neue Schlüssel machen alle bereits aktivierten Geräte ungültig.</p>
+
+<div class="card">
+  <label for="sb">Supabase Project URL</label>
+  <input id="sb" placeholder="https://abcdefgh.supabase.co">
+  <label for="app">Adresse deiner App (GitHub Pages)</label>
+  <input id="app" placeholder="https://DEIN-NAME.github.io/saugerteam/">
+  <label for="mail">Deine E-Mail-Adresse (nur als Kontakt für die Push-Dienste von Apple/Google)</label>
+  <input id="mail" placeholder="du@example.com">
+  <button id="go">Schlüssel erzeugen</button>
+</div>
+
+<div id="out">
+  <div class="card">
+    <h2><span class="step">A</span>Secrets für die Edge Function</h2>
+    <p style="margin:0">In Supabase unter <b>Edge Functions → Secrets</b> jeweils Name und Wert eintragen.</p>
+    <div class="kv" id="secrets"></div>
+  </div>
+  <div class="card">
+    <h2><span class="step">B</span>Zeile für config.js</h2>
+    <p style="margin:0">In <code>config.js</code> die Zeile <code>vapidPublicKey: "",</code> durch diese ersetzen:</p>
+    <pre id="cfg"></pre><button class="copy" data-copy="cfg">Kopieren</button>
+  </div>
+  <div class="card">
+    <h2><span class="step">C</span>SQL für die tägliche Erinnerung</h2>
+    <p style="margin:0">In Supabase unter <b>SQL Editor → New query</b> einfügen und <b>Run</b>.</p>
+    <pre id="sql"></pre><button class="copy" data-copy="sql">Kopieren</button>
+  </div>
+  <div class="warn"><b>Wichtig:</b> Den <code>VAPID_PRIVATE_KEY</code> und das <code>CRON_SECRET</code> niemandem schicken und nicht auf GitHub hochladen. Nach dem Eintragen kannst du diese Seite einfach schließen.</div>
+</div>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+const C = window.APP_CONFIG || {};
+if (C.supabaseUrl) $('sb').value = C.supabaseUrl;
+if (/^https?:/.test(location.protocol)) $('app').value = location.href.replace(/[^/]*$/, '');
+const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const rnd = n => b64u(crypto.getRandomValues(new Uint8Array(n)));
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+
+$('go').onclick = async () => {
+  const sb = $('sb').value.trim().replace(/\/+$/,''); let app = $('app').value.trim(); const mail = $('mail').value.trim();
+  if (!/^https:\/\/.+\.supabase\.co$/.test(sb)) return alert('Bitte die Supabase-URL im Format https://xxxx.supabase.co eintragen.');
+  if (!/^https:\/\//.test(app)) return alert('Bitte die Adresse deiner App eintragen (beginnt mit https://).');
+  if (!app.endsWith('/')) app += '/';
+  if (!crypto.subtle) return alert('Dein Browser erlaubt hier keine Schlüssel-Erzeugung. Öffne diese Seite bitte über deine GitHub-Pages-Adresse (…/einrichtung-push.html).');
+  const kp = await crypto.subtle.generateKey({ name:'ECDSA', namedCurve:'P-256' }, true, ['sign','verify']);
+  const pub = b64u(await crypto.subtle.exportKey('raw', kp.publicKey));
+  const priv = (await crypto.subtle.exportKey('jwk', kp.privateKey)).d;
+  const cron = rnd(24);
+  const secrets = [['VAPID_PUBLIC_KEY', pub], ['VAPID_PRIVATE_KEY', priv], ['VAPID_SUBJECT', 'mailto:' + (mail || 'saugerteam@example.com')], ['CRON_SECRET', cron], ['APP_URL', app]];
+  $('secrets').innerHTML = secrets.map(([k,v],i)=>`<b>${k}</b><code id="s${i}">${esc(v)}</code><button class="copy" data-copy="s${i}">Kopieren</button>`).join('');
+  $('cfg').textContent = `  vapidPublicKey: "${pub}",`;
+  $('sql').textContent =
+`-- Saugerteam: jeden Abend um 18 Uhr (Winter) bzw. 19 Uhr (Sommer) deutscher Zeit
+-- an den nächsten Tag erinnern
+select cron.schedule(
+  'saugerteam-erinnerung',
+  '0 17 * * *',
+  $$
+  select net.http_post(
+    url     := '${sb}/functions/v1/notify',
+    headers := '{"Content-Type": "application/json"}'::jsonb,
+    body    := '{"type": "reminder", "secret": "${cron}"}'::jsonb
+  );
+  $$
+);`;
+  $('out').style.display = 'block';
+  $('out').scrollIntoView({ behavior:'smooth' });
+};
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-copy]'); if (!b) return;
+  await navigator.clipboard.writeText($(b.dataset.copy).textContent.trim());
+  const t = b.textContent; b.textContent = 'Kopiert ✓'; setTimeout(()=>b.textContent = t, 1400);
+});
+</script>
+</body>
+</html>
