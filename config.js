@@ -14,8 +14,8 @@ window.APP_CONFIG = {
 
   // Anzeige
   title: "Saugerteam",
-  weekdayWindow: "9–15 Uhr",   // Mo–Fr
-  weekendWindow: "8–10 Uhr",   // Sa/So
+  weekdayWindow: "bis 15 Uhr",   // Mo–Fr
+  weekendWindow: "bis 10 Uhr",   // Sa/So
 
   // Monate mit Sommer-Putzintervall (April–September), Rest = Winter
   summerMonths: [4, 5, 6, 7, 8, 9],
